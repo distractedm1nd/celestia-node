@@ -287,7 +287,7 @@ func (m *mockGetter) fillSubWithHeaders(
 
 	index := 0
 	for i := startHeight; i < endHeight; i++ {
-		dah := share.RandFillDAG(t, 16, bServ)
+		dah := share.RandFillBS(t, 16, bServ)
 
 		randHeader := header.RandExtendedHeader(t)
 		randHeader.DataHash = dah.Hash()
@@ -311,7 +311,7 @@ type mockGetter struct {
 
 func (m *mockGetter) generateHeaders(t *testing.T, bServ blockservice.BlockService, startHeight, endHeight int) {
 	for i := startHeight; i < endHeight; i++ {
-		dah := share.RandFillDAG(t, 16, bServ)
+		dah := share.RandFillBS(t, 16, bServ)
 
 		randHeader := header.RandExtendedHeader(t)
 		randHeader.DataHash = dah.Hash()
