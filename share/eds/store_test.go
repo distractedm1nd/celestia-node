@@ -2,7 +2,6 @@ package eds
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/filecoin-project/dagstore/shard"
@@ -82,7 +81,7 @@ func TestEDSStore_GetCAR(t *testing.T) {
 	require.NoError(t, err)
 	carReader, err := car.NewCarReader(r)
 
-	fmt.Println(car.HeaderSize(carReader.Header))
+	//fmt.Println(car.HeaderSize(carReader.Header))
 	require.NoError(t, err)
 
 	for i := 0; i < 4; i++ {

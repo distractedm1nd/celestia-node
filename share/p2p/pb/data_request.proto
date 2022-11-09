@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+message DataRequest {
+  bytes dataRoot = 1;
+  repeated bytes namespace = 2;
+}

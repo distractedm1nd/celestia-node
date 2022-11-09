@@ -125,6 +125,20 @@ func (s *EDSStore) Put(ctx context.Context, root share.Root, square *rsmt2d.Exte
 	return nil
 }
 
+func (s *EDSStore) GetCarByBytes(ctx context.Context, dataRoot []byte) (io.ReadCloser, error) {
+	ch := make(chan dagstore.ShardResult, 1)
+	err := s.dgstr.AcquireShard(ctx, shard.KeyFromBytes(dataRoot), ch, dagstore.AcquireOpts{})
+	if err != nil {
+		return nil, err
+	}
+
+	result := <-ch
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.Accessor, nil
+}
+
 // GetCAR takes a DataRoot and returns a buffered reader to the respective EDS serialized as a CARv1 file.
 //
 // The Reader strictly reads the first quadrant(1/4) of EDS, omitting all the NMT Merkle proofs.
