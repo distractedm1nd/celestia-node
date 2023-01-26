@@ -14,8 +14,8 @@ import (
 
 	"github.com/celestiaorg/celestia-node/core"
 	"github.com/celestiaorg/celestia-node/header"
-	"github.com/celestiaorg/celestia-node/share/p2p/shrexsub"
 	"github.com/celestiaorg/celestia-node/header/p2p"
+	"github.com/celestiaorg/celestia-node/share/p2p/shrexsub"
 )
 
 // TestListener tests the lifecycle of the core listener.

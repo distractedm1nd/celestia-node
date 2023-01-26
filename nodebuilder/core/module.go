@@ -35,7 +35,7 @@ func ConstructModule(tp node.Type, cfg *Config, options ...fx.Option) fx.Option 
 			fx.Provide(core.NewBlockFetcher),
 			fxutil.ProvideAs(headercore.NewExchange, new(header.Exchange)),
 			fx.Invoke(fx.Annotate(
-				func(bcast libhead.Broadcaster[*header.ExtendedHeader],
+				func(bcast header.Broadcaster,
 					fetcher *core.BlockFetcher,
 					pubsub *shrexsub.PubSub,
 					bServ blockservice.BlockService,

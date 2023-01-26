@@ -21,12 +21,12 @@ import (
 // broadcasts the new `ExtendedHeader` to the header-sub gossipsub
 // network.
 type Listener struct {
-	fetcher   *core.BlockFetcher
-	bServ     blockservice.BlockService
-	construct header.ConstructFn
+	fetcher           *core.BlockFetcher
+	bServ             blockservice.BlockService
+	construct         header.ConstructFn
 	headerBroadcaster header.Broadcaster
 	hashBroadcaster   shrexsub.BroadcastFn
-	cancel    context.CancelFunc
+	cancel            context.CancelFunc
 }
 
 func NewListener(
