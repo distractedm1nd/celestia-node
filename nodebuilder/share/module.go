@@ -2,6 +2,7 @@ package share
 
 import (
 	"context"
+	libhead "github.com/celestiaorg/celestia-node/libs/header"
 
 	"github.com/ipfs/go-blockservice"
 	"github.com/ipfs/go-datastore"
@@ -83,10 +84,27 @@ func ConstructModule(tp node.Type, cfg *Config, options ...fx.Option) fx.Option 
 					return server.Stop(ctx)
 				}),
 			)),
+			fx.Provide(getters.NewIPLDGetter),
+			fx.Provide(fx.Annotate(
+				func(host host.Host, store *eds.Store, getter *getters.IPLDGetter, network modp2p.Network) (*shrexnd.Server, error) {
+					return shrexnd.NewServer(host, store, getter, shrexnd.WithProtocolSuffix(string(network)))
+				},
+				fx.OnStart(func(ctx context.Context, server *shrexeds.Server) error {
+					return server.Start(ctx)
+				}),
+				fx.OnStop(func(ctx context.Context, server *shrexeds.Server) error {
+					return server.Stop(ctx)
+				}),
+			)),
 			// Bridge Nodes need a client as well, for requests over FullAvailability
 			fx.Provide(
 				func(host host.Host, network modp2p.Network) (*shrexeds.Client, error) {
 					return shrexeds.NewClient(host, shrexeds.WithProtocolSuffix(string(network)))
+				},
+			),
+			fx.Provide(
+				func(host host.Host, network modp2p.Network) (*shrexnd.Client, error) {
+					return shrexnd.NewClient(host, shrexnd.WithProtocolSuffix(string(network)))
 				},
 			),
 			fx.Provide(fx.Annotate(
@@ -132,15 +150,18 @@ func ConstructModule(tp node.Type, cfg *Config, options ...fx.Option) fx.Option 
 			// cacheAvailability's lifecycle continues to use a fx hook,
 			// since the LC requires a cacheAvailability but the constructor returns a share.Availability
 			fx.Provide(cacheAvailability[*full.ShareAvailability]),
+			fx.Provide(func(subscriber libhead.Subscriber[*header.ExtendedHeader]) (header.Subscription, error) {
+				return subscriber.Subscribe()
+			}),
 		)
 	default:
 		panic("invalid node type")
 	}
 }
 
-func peerManager(headerSub header.Subscription, discovery disc.Discovery) *peers.Manager {
+func peerManager(subscriber libhead.Subscriber[*header.ExtendedHeader], discovery *disc.Discovery) *peers.Manager {
 	// TODO: Replace modp2p.BlockTime?
-	return peers.NewManager(headerSub, discovery, modp2p.BlockTime)
+	return peers.NewManager(subscriber, discovery, modp2p.BlockTime)
 }
 
 // TODO: Light nodes should also use shrexgetter for nd

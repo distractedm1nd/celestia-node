@@ -3,6 +3,7 @@ package peers
 import (
 	"context"
 	"errors"
+	libhead "github.com/celestiaorg/celestia-node/libs/header"
 	"sync"
 	"time"
 
@@ -19,9 +20,9 @@ var log = logging.Logger("shrex/peers")
 
 // Manager keeps track of peers coming from shrex.Sub and from discovery
 type Manager struct {
-	disc discovery.Discovery
+	disc *discovery.Discovery
 	// header subscription is necessary in order to validate the inbound eds hash
-	headerSub header.Subscription
+	headerSub libhead.Subscriber[*header.ExtendedHeader]
 
 	m               sync.Mutex
 	pools           map[hashStr]syncPool
@@ -35,13 +36,13 @@ type Manager struct {
 type hashStr = string
 
 func NewManager(
-	headerSub header.Subscription,
-	discovery discovery.Discovery,
+	subscriber libhead.Subscriber[*header.ExtendedHeader],
+	discovery *discovery.Discovery,
 	syncTimeout time.Duration,
 ) *Manager {
 	s := &Manager{
 		disc:            discovery,
-		headerSub:       headerSub,
+		headerSub:       subscriber,
 		pools:           make(map[hashStr]syncPool),
 		poolSyncTimeout: syncTimeout,
 		fullNodes:       newPool(),
@@ -138,10 +139,14 @@ func (s *Manager) RemovePeers(datahash share.DataHash, ids ...peer.ID) {
 // headerSub.
 func (s *Manager) subscribeHeader(ctx context.Context) {
 	defer close(s.done)
-	defer s.headerSub.Cancel()
+	sub, err := s.headerSub.Subscribe()
+	if err != nil {
+		panic(err)
+	}
+	defer sub.Cancel()
 
 	for {
-		h, err := s.headerSub.NextHeader(ctx)
+		h, err := sub.NextHeader(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
 				return

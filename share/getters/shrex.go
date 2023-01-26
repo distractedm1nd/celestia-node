@@ -3,6 +3,9 @@ package getters
 import (
 	"context"
 	"errors"
+	"github.com/celestiaorg/celestia-node/libs/utils"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/celestiaorg/celestia-node/share"
 	"github.com/celestiaorg/celestia-node/share/p2p/peers"
@@ -39,14 +42,21 @@ func (sg *ShrexGetter) GetShare(context.Context, *share.Root, int, int) (share.S
 	return nil, errors.New("shrex-getter: GetShare is not supported")
 }
 
-func (sg *ShrexGetter) GetEDS(ctx context.Context, root *share.Root) (*rsmt2d.ExtendedDataSquare, error) {
+func (sg *ShrexGetter) GetEDS(ctx context.Context, root *share.Root) (eds *rsmt2d.ExtendedDataSquare, err error) {
+	ctx, span := tracer.Start(ctx, "shrex/get-eds", trace.WithAttributes(
+		attribute.String("root", root.String()),
+	))
+	defer func() {
+		utils.SetStatusAndEnd(span, err)
+	}()
+
 	for {
 		to, markSuccessful, err := sg.peers.GetPeer(ctx, root.Hash())
 		if err != nil {
 			return nil, err
 		}
 
-		eds, err := sg.edsClient.RequestEDS(ctx, root.Hash(), to)
+		eds, err = sg.edsClient.RequestEDS(ctx, root.Hash(), to)
 		if eds != nil {
 			markSuccessful(true)
 			return eds, nil
@@ -63,16 +73,23 @@ func (sg *ShrexGetter) GetSharesByNamespace(
 	ctx context.Context,
 	root *share.Root,
 	id namespace.ID,
-) (share.NamespacedShares, error) {
+) (shares share.NamespacedShares, err error) {
+	ctx, span := tracer.Start(ctx, "shrex/get-shares-by-namespace", trace.WithAttributes(
+		attribute.String("root", root.String()),
+		attribute.String("nID", id.String()),
+	))
+	defer func() {
+		utils.SetStatusAndEnd(span, err)
+	}()
 	for {
 		to, done, err := sg.peers.GetPeer(ctx, root.Hash())
 		if err != nil {
 			return nil, err
 		}
 
-		eds, err := sg.ndClient.RequestND(ctx, root, id, to)
-		if eds != nil {
-			return eds, nil
+		shares, err = sg.ndClient.RequestND(ctx, root, id, to)
+		if shares != nil {
+			return shares, nil
 		}
 
 		// non-nil error means the peer has misbehaved
