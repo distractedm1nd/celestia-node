@@ -78,14 +78,14 @@ func NewManager(
 		done:            make(chan struct{}),
 	}
 
-	//discovery.WithOnPeersUpdate(
-	//	func(peerID peer.ID, isAdded bool) {
-	//		if isAdded {
-	//			s.fullNodes.add(peerID)
-	//			return
-	//		}
-	//		s.fullNodes.remove(peerID)
-	//	})
+	discovery.WithOnPeersUpdate(
+		func(peerID peer.ID, isAdded bool) {
+			if isAdded {
+				s.fullNodes.add(peerID)
+				return
+			}
+			s.fullNodes.remove(peerID)
+		})
 
 	return s
 }
