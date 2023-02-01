@@ -78,14 +78,14 @@ func NewManager(
 		done:            make(chan struct{}),
 	}
 
-	discovery.WithOnPeersUpdate(
-		func(peerID peer.ID, isAdded bool) {
-			if isAdded {
-				s.fullNodes.add(peerID)
-				return
-			}
-			s.fullNodes.remove(peerID)
-		})
+	//discovery.WithOnPeersUpdate(
+	//	func(peerID peer.ID, isAdded bool) {
+	//		if isAdded {
+	//			s.fullNodes.add(peerID)
+	//			return
+	//		}
+	//		s.fullNodes.remove(peerID)
+	//	})
 
 	return s
 }
@@ -93,14 +93,8 @@ func NewManager(
 func (s *Manager) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
-
-	sub, err := s.headerSub.Subscribe()
-	if err != nil {
-		return err
-	}
 	go s.disc.EnsurePeers(ctx)
-	go s.subscribeHeader(ctx, sub)
-
+	go s.subscribeHeader(ctx)
 	return nil
 }
 
@@ -180,12 +174,16 @@ func (s *Manager) RemovePeers(datahash share.DataHash, ids ...peer.ID) {
 
 // subscribeHeader marks pool as validated when its datahash corresponds to a header received from
 // headerSub.
-func (s *Manager) subscribeHeader(ctx context.Context, headerSub libhead.Subscription[*header.ExtendedHeader]) {
+func (s *Manager) subscribeHeader(ctx context.Context) {
 	defer close(s.done)
-	defer headerSub.Cancel()
+	sub, err := s.headerSub.Subscribe()
+	if err != nil {
+		panic(err)
+	}
+	defer sub.Cancel()
 
 	for {
-		h, err := headerSub.NextHeader(ctx)
+		h, err := sub.NextHeader(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
 				return
