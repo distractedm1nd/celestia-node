@@ -26,7 +26,7 @@ type ShrexGetter struct {
 	ndClient  *shrexnd.Client
 	shrexSub  *shrexsub.PubSub
 
-	peers *peers.Manager
+	peerManager *peers.Manager
 }
 
 func NewShrexGetter(
@@ -36,25 +36,25 @@ func NewShrexGetter(
 	peerManager *peers.Manager,
 ) *ShrexGetter {
 	return &ShrexGetter{
-		edsClient: edsClient,
-		ndClient:  ndClient,
-		shrexSub:  shrexSub,
-		peers:     peerManager,
+		edsClient:   edsClient,
+		ndClient:    ndClient,
+		shrexSub:    shrexSub,
+		peerManager: peerManager,
 	}
 }
 
 func (sg *ShrexGetter) Start(context.Context) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	sg.cancel = cancel
-	sg.peers.Start()
+	sg.peerManager.Start()
 	go sg.listen(ctx)
-	err := sg.shrexSub.AddValidator(sg.peers.Validate)
+	err := sg.shrexSub.AddValidator(sg.peerManager.Validate)
 	return err
 }
 
 func (sg *ShrexGetter) Stop(ctx context.Context) error {
 	defer sg.cancel()
-	return sg.peers.Stop(ctx)
+	return sg.peerManager.Stop(ctx)
 }
 
 func (sg *ShrexGetter) listen(ctx context.Context) {
@@ -85,7 +85,7 @@ func (sg *ShrexGetter) GetShare(ctx context.Context, root *share.Root, row, col 
 
 func (sg *ShrexGetter) GetEDS(ctx context.Context, root *share.Root) (*rsmt2d.ExtendedDataSquare, error) {
 	for {
-		to, setStatus, err := sg.peers.GetPeer(ctx, root.Hash())
+		to, setStatus, err := sg.peerManager.GetPeer(ctx, root.Hash())
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +119,7 @@ func (sg *ShrexGetter) GetSharesByNamespace(
 	id namespace.ID,
 ) (share.NamespacedShares, error) {
 	for {
-		to, setStatus, err := sg.peers.GetPeer(ctx, root.Hash())
+		to, setStatus, err := sg.peerManager.GetPeer(ctx, root.Hash())
 		if err != nil {
 			return nil, err
 		}
