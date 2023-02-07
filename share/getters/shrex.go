@@ -93,11 +93,19 @@ func (sg *ShrexGetter) GetEDS(ctx context.Context, root *share.Root) (*rsmt2d.Ex
 		eds, err := sg.edsClient.RequestEDS(ctx, root.Hash(), to)
 		switch err {
 		case nil:
-			setStatus(peers.ResultSuccess)
+		    setStatus(peers.ResultSuccess)
+			err = sg.shrexSub.Broadcast(ctx, root.Hash())
+			if err != nil {
+				log.Errorf("couldn't rebroadcast datahash %s: %s", root.String(), err)
+			}
 			return eds, nil
 		case p2p.ErrInvalidResponse:
-			setStatus(peers.ResultPeerMMisbehaved)
+			setStatus(peers.ResultPeerMisbehaved)
+			if err != nil {
+				return nil, err
+			}
 		case context.DeadlineExceeded, context.Canceled:
+			setStatus(peers.ResultFail)
 			return nil, ctx.Err()
 		default:
 			setStatus(peers.ResultFail)
@@ -120,10 +128,18 @@ func (sg *ShrexGetter) GetSharesByNamespace(
 		switch err {
 		case nil:
 			setStatus(peers.ResultSuccess)
+			err = sg.shrexSub.Broadcast(ctx, root.Hash())
+			if err != nil {
+				log.Errorf("couldn't rebroadcast datahash %s: %s", root.String(), err)
+			}
 			return eds, nil
 		case p2p.ErrInvalidResponse:
-			setStatus(peers.ResultPeerMMisbehaved)
+			setStatus(peers.ResultPeerMisbehaved)
+			if err != nil {
+				return nil, err
+			}
 		case context.DeadlineExceeded, context.Canceled:
+			setStatus(peers.ResultFail)
 			return nil, ctx.Err()
 		default:
 			setStatus(peers.ResultFail)

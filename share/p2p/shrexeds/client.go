@@ -82,7 +82,7 @@ func (c *Client) doRequest(
 
 	if dl, ok := ctx.Deadline(); ok {
 		if err = stream.SetDeadline(dl); err != nil {
-			log.Debugw("error setting deadline: %s", err)
+			log.Debugf("error setting deadline: %s", err)
 		}
 	}
 

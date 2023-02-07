@@ -3,8 +3,7 @@ package peers
 import (
 	"context"
 	"errors"
-	"fmt"
-	"github.com/celestiaorg/celestia-node/share/p2p/shrexsub"
+	"github.com/libp2p/go-libp2p/core/host"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -40,7 +39,6 @@ type Manager struct {
 	disc *discovery.Discovery
 	// header subscription is necessary in order to validate the inbound eds hash
 	headerSub libhead.Subscriber[*header.ExtendedHeader]
-	broadcast shrexsub.BroadcastFn
 	ownPeerID peer.ID
 
 	poolsLock       sync.Mutex
@@ -66,11 +64,13 @@ type syncPool struct {
 
 func NewManager(
 	headerSub libhead.Subscriber[*header.ExtendedHeader],
+	host host.Host,
 	discovery *discovery.Discovery,
 	syncTimeout time.Duration,
 ) *Manager {
 	s := &Manager{
 		disc:            discovery,
+		ownPeerID:       host.ID(),
 		headerSub:       headerSub,
 		pools:           make(map[string]*syncPool),
 		poolSyncTimeout: syncTimeout,
@@ -108,7 +108,7 @@ func (s *Manager) Stop(ctx context.Context) error {
 	}
 }
 
-type DoneFunc func(ctx context.Context, result syncResult) error
+type DoneFunc func(result syncResult)
 
 type syncResult int
 
@@ -121,7 +121,6 @@ func (s *Manager) GetPeer(
 ) (peer.ID, DoneFunc, error) {
 	p := s.getOrCreatePool(datahash.String())
 	p.markValidated()
-	fmt.Println("Pool get ", len(p.pool.peersList))
 
 	peerID, ok := p.tryGet()
 	if ok {
@@ -141,29 +140,21 @@ func (s *Manager) GetPeer(
 	case peerID = <-s.fullNodes.getNext(ctx):
 		return peerID, s.doneFunc(datahash, peerID), nil
 	case <-ctx.Done():
-		fmt.Println("nothing came", len(p.pool.peersList))
 		return "", nil, ctx.Err()
 	}
 }
 
 func (s *Manager) doneFunc(datahash share.DataHash, peerID peer.ID) DoneFunc {
-	return func(ctx context.Context, result syncResult) error {
+	return func(result syncResult) {
 		switch result {
 		case ResultSuccess:
-			fmt.Println("BROADCAST", peerID.String())
 			s.deletePool(datahash.String())
-			err := s.broadcast(ctx, datahash)
-			if err != nil {
-				return fmt.Errorf("broadcast new message; %w", err)
-			}
 		case ResultFail:
 		case ResultPeerMisbehaved:
-			fmt.Println("MISBEHAVED")
 			// TODO: signal to peers Validator to return Reject
 			s.RemovePeers(datahash, peerID)
 			s.fullNodes.remove(peerID)
 		}
-		return nil
 	}
 }
 
@@ -201,7 +192,6 @@ func (s *Manager) subscribeHeader(ctx context.Context) {
 // address this, validator should be reworked to be non-blocking, with retransmission being invoked
 // in sync manner from another routine upon header discovery.
 func (s *Manager) Validate(ctx context.Context, peerID peer.ID, hash share.DataHash) pubsub.ValidationResult {
-	fmt.Println("VALIDATE", hash.String(), peerID.String())
 	if peerID == s.ownPeerID {
 		return pubsub.ValidationAccept
 	}
@@ -225,7 +215,6 @@ func (s *Manager) getOrCreatePool(datahash string) *syncPool {
 			validationDeadline: time.Now().Add(s.poolSyncTimeout),
 		}
 		s.pools[datahash] = p
-		fmt.Println("create")
 	}
 
 	return p
@@ -240,5 +229,3 @@ func (s *Manager) deletePool(datahash string) {
 func (p *syncPool) markValidated() {
 	p.isValidDataHash.Store(true)
 }
-
-func (s *Manager)

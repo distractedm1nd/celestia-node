@@ -62,8 +62,8 @@ func bsFromEDSStore(ctx context.Context, store *eds.Store) (blockstore.Blockstor
 		ctx,
 		store.Blockstore(),
 		blockstore.CacheOpts{
-			HasBloomFilterSize:   defaultBloomFilterSize,
-			HasBloomFilterHashes: defaultBloomFilterHashes,
+			//HasBloomFilterSize:   defaultBloomFilterSize,
+			//HasBloomFilterHashes: defaultBloomFilterHashes,
 			HasARCCacheSize:      defaultARCCacheSize,
 		},
 	)

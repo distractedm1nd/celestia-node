@@ -155,9 +155,9 @@ func ConstructModule(tp node.Type, cfg *Config, options ...fx.Option) fx.Option 
 	}
 }
 
-func peerManager(subscriber libhead.Subscriber[*header.ExtendedHeader], discovery *disc.Discovery) *peers.Manager {
+func peerManager(subscriber libhead.Subscriber[*header.ExtendedHeader],host host.Host, discovery *disc.Discovery) *peers.Manager {
 	// TODO: Replace modp2p.BlockTime?
-	return peers.NewManager(subscriber, discovery, modp2p.BlockTime)
+	return peers.NewManager(subscriber, host, discovery, modp2p.BlockTime)
 }
 
 func bridgeGetter(
