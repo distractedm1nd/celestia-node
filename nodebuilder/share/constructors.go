@@ -3,6 +3,7 @@ package share
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/filecoin-project/dagstore"
 	"github.com/ipfs/go-datastore"
@@ -74,7 +75,7 @@ func peerManager(
 	connGater *conngater.BasicConnectionGater,
 ) *peers.Manager {
 	// TODO: find better syncTimeout duration?
-	return peers.NewManager(headerSub, shrexSub, discovery, host, connGater, modp2p.BlockTime)
+	return peers.NewManager(headerSub, shrexSub, discovery, host, connGater, modp2p.BlockTime, time.Second)
 }
 
 func fullGetter(

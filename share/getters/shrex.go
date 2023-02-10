@@ -3,7 +3,6 @@ package getters
 import (
 	"context"
 	"errors"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"time"
 
 	"github.com/celestiaorg/celestia-node/share"
@@ -51,7 +50,6 @@ func (sg *ShrexGetter) GetShare(ctx context.Context, root *share.Root, row, col 
 }
 
 func (sg *ShrexGetter) GetEDS(ctx context.Context, root *share.Root) (*rsmt2d.ExtendedDataSquare, error) {
-	alreadySeen := make(map[peer.ID]int)
 	for {
 		select {
 		case <-ctx.Done():
@@ -62,11 +60,6 @@ func (sg *ShrexGetter) GetEDS(ctx context.Context, root *share.Root) (*rsmt2d.Ex
 		if err != nil {
 			log.Debugw("couldn't find peer", "datahash", root.String(), "err", err)
 			return nil, err
-		}
-		if alreadySeen[peer] >= 4 {
-			log.Debugw("this peer has returned NOT_FOUND 5 times", "peer", peer.String(), "datahash", root.String())
-			setStatus(peers.ResultPeerMisbehaved)
-			continue
 		}
 
 		reqCtx, cancel := context.WithTimeout(ctx, sg.maxRequestDuration)
@@ -80,9 +73,6 @@ func (sg *ShrexGetter) GetEDS(ctx context.Context, root *share.Root) (*rsmt2d.Ex
 			log.Debugw("request exceeded deadline, trying with new peer", "datahash", root.String())
 		case p2p.ErrInvalidResponse:
 			setStatus(peers.Blacklist)
-		case p2p.ErrUnavailable:
-			alreadySeen[peer]++
-			fallthrough
 		default:
 			setStatus(peers.Cooldown)
 		}
