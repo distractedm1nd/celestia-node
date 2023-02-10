@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	ResultSuccess syncResult = iota
-	ResultFail
-	ResultPeerMisbehaved
+	Success syncResult = iota
+	Cooldown
+	Blacklist
 
 	gcInterval = time.Second * 30
 )
@@ -45,8 +45,9 @@ type Manager struct {
 	connGater *conngater.BasicConnectionGater
 
 	// pools collecting peers from shrexSub
-	pools           map[string]*syncPool
-	poolSyncTimeout time.Duration
+	pools            map[string]*syncPool
+	poolSyncTimeout  time.Duration
+	peerCooldownTime time.Duration
 	// fullNodes collects full nodes peer.ID found via discovery
 	fullNodes *pool
 
@@ -79,6 +80,7 @@ func NewManager(
 	host host.Host,
 	connGater *conngater.BasicConnectionGater,
 	syncTimeout time.Duration,
+	peerCooldownTime time.Duration,
 ) *Manager {
 	s := &Manager{
 		headerSub:         headerSub,
@@ -88,7 +90,7 @@ func NewManager(
 		host:              host,
 		pools:             make(map[string]*syncPool),
 		poolSyncTimeout:   syncTimeout,
-		fullNodes:         newPool(),
+		fullNodes:         newPool(peerCooldownTime),
 		blacklistedHashes: make(map[string]bool),
 		done:              make(chan struct{}),
 	}
@@ -208,10 +210,11 @@ func (s *Manager) doneFunc(datahash share.DataHash, peerID peer.ID) DoneFunc {
 			"datahash", datahash.String(),
 			result, result)
 		switch result {
-		case ResultSuccess:
+		case Success:
 			s.getOrCreatePool(datahash.String()).markSynced()
-		case ResultFail:
-		case ResultPeerMisbehaved:
+		case Cooldown:
+			s.getOrCreatePool(datahash.String()).putOnCooldown(peerID)
+		case Blacklist:
 			s.blacklistPeers(peerID)
 		}
 	}
@@ -270,7 +273,7 @@ func (s *Manager) getOrCreatePool(datahash string) *syncPool {
 	p, ok := s.pools[datahash]
 	if !ok {
 		p = &syncPool{
-			pool:      newPool(),
+			pool:      newPool(s.peerCooldownTime),
 			createdAt: time.Now(),
 		}
 		s.pools[datahash] = p
@@ -357,7 +360,7 @@ func (s *Manager) cleanUp() []peer.ID {
 func (p *syncPool) markSynced() {
 	old := (*unsafe.Pointer)(unsafe.Pointer(&p.pool))
 	// release pointer to old pool to be garbage collected
-	atomic.StorePointer(old, unsafe.Pointer(newPool()))
+	atomic.StorePointer(old, unsafe.Pointer(newPool(0)))
 	p.isSynced.Store(true)
 }
 
