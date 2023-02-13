@@ -87,7 +87,7 @@ func fullGetter(
 		[]share.Getter{
 			getters.NewStoreGetter(store),
 			getters.NewTeeGetter(shrexGetter, store),
-			getters.NewTeeGetter(ipldGetter, store),
+			//getters.NewTeeGetter(ipldGetter, store),
 		},
 		// TODO: What constant should we use here?
 		modp2p.BlockTime,
