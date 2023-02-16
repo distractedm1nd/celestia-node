@@ -69,11 +69,12 @@ func TestManager(t *testing.T) {
 		require.Equal(t, peerID, pID)
 
 		// check pool validation
-		require.True(t, manager.pools[h.DataHash.String()].isValidatedDataHash.Load())
+		require.True(t, manager.getOrCreatePool(h.DataHash.String()).isValidatedDataHash.Load())
 
-		done(Success)
-		// pool should be removed after success
-		require.Len(t, manager.pools, 0)
+		done(ResultSynced)
+		// pool should not be removed after success
+		require.Len(t, manager.pools, 1)
+		require.Len(t, manager.getOrCreatePool(h.DataHash.String()).pool.peersList, 0)
 	})
 
 	t.Run("validator", func(t *testing.T) {
@@ -100,7 +101,7 @@ func TestManager(t *testing.T) {
 		require.Equal(t, peerID, pID)
 
 		// mark peer as misbehaved tp blacklist it
-		done(Blacklist)
+		done(ResultBlacklistPeer)
 
 		// misbehaved should be Rejected
 		result = manager.validate(ctx, pID, h.DataHash.Bytes())
@@ -124,7 +125,7 @@ func TestManager(t *testing.T) {
 		peerID := peer.ID("peer1")
 		manager.validate(ctx, peerID, h.DataHash.Bytes())
 		// set syncTimeout to 0 to allow cleanup to find outdated datahash
-		manager.poolSyncTimeout = 0
+		manager.poolValidationTimeout = 0
 
 		blacklisted := manager.cleanUp()
 		require.Contains(t, blacklisted, peerID)
@@ -148,7 +149,7 @@ func TestManager(t *testing.T) {
 		manager.fullNodes.add(peers...)
 
 		peerID, done, err := manager.Peer(ctx, h.DataHash.Bytes())
-		done(Success)
+		done(ResultSynced)
 		require.NoError(t, err)
 		require.Contains(t, peers, peerID)
 
@@ -180,7 +181,7 @@ func TestManager(t *testing.T) {
 		go func() {
 			defer close(doneCh)
 			peerID, done, err := manager.Peer(ctx, h.DataHash.Bytes())
-			done(Success)
+			done(ResultSynced)
 			require.NoError(t, err)
 			require.Contains(t, peers, peerID)
 		}()
@@ -216,7 +217,7 @@ func TestManager(t *testing.T) {
 		pID, done, err := manager.Peer(ctx, h.DataHash.Bytes())
 		require.NoError(t, err)
 		require.Equal(t, peerID, pID)
-		done(ResultSuccess)
+		done(ResultSynced)
 
 		// check pool is soft deleted and marked synced
 		pool := manager.getOrCreatePool(h.DataHash.String())
@@ -224,15 +225,15 @@ func TestManager(t *testing.T) {
 		require.True(t, pool.isSynced.Load())
 
 		// add peer on synced pool should be noop
-		pool.add("peer1", "peer2")
+		result = manager.validate(ctx, "peer2", h.DataHash.Bytes())
+		require.Equal(t, pubsub.ValidationIgnore, result)
 		require.Len(t, pool.peersList, 0)
 	})
 }
 
 func TestIntegration(t *testing.T) {
 	t.Run("get peer from shrexsub", func(t *testing.T) {
-		t.SkipNow()
-		nw, err := mocknet.FullMeshConnected(3)
+		nw, err := mocknet.FullMeshLinked(2)
 		require.NoError(t, err)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		t.Cleanup(cancel)
@@ -253,6 +254,10 @@ func TestIntegration(t *testing.T) {
 		require.NoError(t, fnPubSub.AddValidator(fnPeerManager.validate))
 		_, err = fnPubSub.Subscribe()
 		require.NoError(t, err)
+
+		time.Sleep(time.Millisecond * 100)
+		require.NoError(t, nw.ConnectAllButSelf())
+		time.Sleep(time.Millisecond * 100)
 
 		// broadcast from BN
 		peerHash := share.DataHash("peer1")
@@ -315,7 +320,15 @@ func TestIntegration(t *testing.T) {
 		// hook peer manager to discovery
 		connGater, err := conngater.NewBasicConnectionGater(sync.MutexWrap(datastore.NewMapDatastore()))
 		require.NoError(t, err)
-		fnPeerManager := NewManager(nil, nil, fnDisc, nil, connGater, time.Minute, time.Second)
+		fnPeerManager := NewManager(
+			nil,
+			nil,
+			fnDisc,
+			nil,
+			connGater,
+			WithValidationTimeout(time.Minute),
+			WithPeerCooldown(time.Second),
+		)
 
 		waitCh := make(chan struct{})
 		fnDisc.WithOnPeersUpdate(func(peerID peer.ID, isAdded bool) {
@@ -354,7 +367,15 @@ func testManager(ctx context.Context, headerSub libhead.Subscriber[*header.Exten
 	if err != nil {
 		return nil, err
 	}
-	manager := NewManager(headerSub, shrexSub, disc, host, connGater, time.Minute, time.Second)
+	manager := NewManager(
+		headerSub,
+		shrexSub,
+		disc,
+		host,
+		connGater,
+		WithValidationTimeout(time.Minute),
+		WithPeerCooldown(time.Second),
+	)
 	err = manager.Start(ctx)
 	return manager, err
 }

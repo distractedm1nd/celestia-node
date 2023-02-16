@@ -17,7 +17,7 @@ import (
 
 var _ share.Getter = (*ShrexGetter)(nil)
 
-const MaxRequestDuration = time.Second * 10
+const defaultMaxRequestDuration = time.Second * 10
 
 // ShrexGetter is a share.Getter that uses the shrex/eds and shrex/nd protocol to retrieve shares.
 type ShrexGetter struct {
@@ -33,7 +33,7 @@ func NewShrexGetter(edsClient *shrexeds.Client, ndClient *shrexnd.Client, peerMa
 		edsClient:          edsClient,
 		ndClient:           ndClient,
 		peerManager:        peerManager,
-		maxRequestDuration: MaxRequestDuration,
+		maxRequestDuration: defaultMaxRequestDuration,
 	}
 }
 
@@ -67,14 +67,14 @@ func (sg *ShrexGetter) GetEDS(ctx context.Context, root *share.Root) (*rsmt2d.Ex
 		cancel()
 		switch err {
 		case nil:
-			setStatus(peers.Success)
+			setStatus(peers.ResultSynced)
 			return eds, nil
 		case context.DeadlineExceeded:
 			log.Debugw("request exceeded deadline, trying with new peer", "datahash", root.String())
 		case p2p.ErrInvalidResponse:
-			setStatus(peers.Blacklist)
+			setStatus(peers.ResultBlacklistPeer)
 		default:
-			setStatus(peers.Cooldown)
+			setStatus(peers.ResultCooldownPeer)
 		}
 	}
 }
@@ -101,14 +101,14 @@ func (sg *ShrexGetter) GetSharesByNamespace(
 		cancel()
 		switch err {
 		case nil:
-			setStatus(peers.Success)
+			setStatus(peers.ResultSuccess)
 			return nd, nil
 		case context.DeadlineExceeded:
 			log.Debugw("request exceeded deadline, trying with new peer", "datahash", root.String())
 		case p2p.ErrInvalidResponse:
-			setStatus(peers.Blacklist)
+			setStatus(peers.ResultBlacklistPeer)
 		default:
-			setStatus(peers.Cooldown)
+			setStatus(peers.ResultCooldownPeer)
 		}
 	}
 }
