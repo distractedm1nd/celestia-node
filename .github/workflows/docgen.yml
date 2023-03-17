@@ -1,0 +1,30 @@
+name: Builds and uploads OpenRPC json artifact
+
+env:
+  GO_VERSION: 1.19
+
+on:
+  push:
+    branches:
+      - docgen-workflow
+
+jobs:
+  build_and_upload:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - uses: actions/setup-go@v3
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Build JSON
+      run: make openrpc-gen > api/docgen/openrpc.json
+
+    - name: Upload JSON artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: json-artifact
+        path: api/docgen/openrpc.json
