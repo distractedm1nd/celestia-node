@@ -3,7 +3,7 @@ package nodebuilder
 import (
 	"context"
 	"fmt"
-	"github.com/celestiaorg/celestia-node/share/p2p/shrexeds"
+	"github.com/celestiaorg/celestia-node/nodebuilder/share"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -71,8 +71,9 @@ func WithMetrics(metricOpts []otlpmetrichttp.Option, nodeType node.Type) fx.Opti
 		fx.Invoke(fraud.WithMetrics),
 		fx.Invoke(node.WithMetrics),
 		// TODO(distractedm1nd): shrex can be disabled, which would make DI fail here
-		fx.Invoke(shrexeds.WithClientMetrics),
+		fx.Invoke(share.WithShrexClientMetrics),
 		fx.Invoke(modheader.WithMetrics),
+		fx.Invoke(share.WithPeerManagerMetrics),
 	)
 
 	var opts fx.Option
@@ -81,14 +82,13 @@ func WithMetrics(metricOpts []otlpmetrichttp.Option, nodeType node.Type) fx.Opti
 		opts = fx.Options(
 			baseComponents,
 			fx.Invoke(das.WithMetrics),
-			fx.Invoke(shrexeds.WithServerMetrics),
+			fx.Invoke(share.WithShrexServerMetrics),
 			// add more monitoring here
 		)
 	case node.Light:
 		opts = fx.Options(
 			baseComponents,
 			fx.Invoke(das.WithMetrics),
-			fx.Invoke(share.WithPeerManagerMetrics),
 			// add more monitoring here
 		)
 	case node.Bridge:
