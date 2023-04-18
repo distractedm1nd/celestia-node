@@ -24,6 +24,7 @@ import (
 // peers.
 type Server struct {
 	params     *Parameters
+	middleware *p2p.Middleware
 	protocolID protocol.ID
 
 	getter share.Getter
@@ -45,6 +46,7 @@ func NewServer(params *Parameters, host host.Host, store *eds.Store, getter shar
 		host:       host,
 		params:     params,
 		protocolID: p2p.ProtocolID(params.NetworkID(), protocolString),
+		middleware: p2p.NewMiddleware(params.ConcurrencyLimit),
 	}
 
 	return srv, nil
@@ -58,7 +60,7 @@ func (srv *Server) Start(context.Context) error {
 	handler := func(s network.Stream) {
 		srv.handleNamespacedData(ctx, s)
 	}
-	srv.host.SetStreamHandler(srv.protocolID, p2p.RateLimitMiddleware(handler, srv.params.ConcurrencyLimit))
+	srv.host.SetStreamHandler(srv.protocolID, srv.middleware.RateLimitHandler(handler))
 	return nil
 }
 
