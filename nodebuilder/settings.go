@@ -74,6 +74,7 @@ func WithMetrics(metricOpts []otlpmetrichttp.Option, nodeType node.Type) fx.Opti
 		fx.Invoke(share.WithShrexClientMetrics),
 		fx.Invoke(modheader.WithMetrics),
 		fx.Invoke(share.WithPeerManagerMetrics),
+		fx.Invoke(share.WithShrexGetterMetrics),
 	)
 
 	var opts fx.Option
@@ -94,6 +95,7 @@ func WithMetrics(metricOpts []otlpmetrichttp.Option, nodeType node.Type) fx.Opti
 	case node.Bridge:
 		opts = fx.Options(
 			baseComponents,
+			fx.Invoke(share.WithShrexServerMetrics),
 			// add more monitoring here
 		)
 	default:
