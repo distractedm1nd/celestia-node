@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"context"
+	"go.opentelemetry.io/otel/metric/global"
 	"time"
 
 	logging "github.com/ipfs/go-log/v2"
@@ -14,6 +15,15 @@ import (
 )
 
 var log = logging.Logger("share/discovery")
+var meter = global.MeterProvider().Meter("share/discovery")
+
+type status string
+
+const (
+	StatusFoundKnown = status("found_known")
+	StatusNewPeer    = status("new_peer")
+	StatusLostPeer   = status("lost_peer")
+)
 
 const (
 	// peerWeight is a weight of discovered peers.
@@ -47,7 +57,8 @@ type Discovery struct {
 	// onUpdatedPeers will be called on peer set changes
 	onUpdatedPeers OnUpdatedPeers
 
-	cancel context.CancelFunc
+	metrics *metrics
+	cancel  context.CancelFunc
 }
 
 type OnUpdatedPeers func(peerID peer.ID, isAdded bool)
@@ -98,6 +109,7 @@ func (d *Discovery) WithOnPeersUpdate(f OnUpdatedPeers) {
 // Peer will be added to PeerCache if connection succeeds.
 func (d *Discovery) handlePeerFound(ctx context.Context, topic string, peer peer.AddrInfo) {
 	if peer.ID == d.host.ID() || len(peer.Addrs) == 0 || d.set.Contains(peer.ID) {
+		d.observePeerEvent(ctx, StatusFoundKnown)
 		return
 	}
 	err := d.set.TryAdd(peer.ID)
@@ -114,6 +126,8 @@ func (d *Discovery) handlePeerFound(ctx context.Context, topic string, peer peer
 	}
 
 	d.onUpdatedPeers(peer.ID, true)
+	d.observePeerCount(ctx)
+	d.observePeerEvent(ctx, StatusNewPeer)
 	log.Debugw("added peer to set", "id", peer.ID)
 	// add tag to protect peer of being killed by ConnManager
 	d.host.ConnManager().TagPeer(peer.ID, topic, peerWeight)
@@ -168,6 +182,8 @@ func (d *Discovery) ensurePeers(ctx context.Context) {
 							"peer", connStatus.Peer, "status", connStatus.Connectedness.String())
 						d.connector.RestartBackoff(connStatus.Peer)
 						d.set.Remove(connStatus.Peer)
+						d.observePeerCount(ctx)
+						d.observePeerEvent(ctx, StatusLostPeer)
 						d.onUpdatedPeers(connStatus.Peer, false)
 						d.host.ConnManager().UntagPeer(connStatus.Peer, topic)
 						t.Reset(d.discoveryInterval)
