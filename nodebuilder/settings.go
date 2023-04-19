@@ -3,7 +3,6 @@ package nodebuilder
 import (
 	"context"
 	"fmt"
-	"github.com/celestiaorg/celestia-node/nodebuilder/share"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -21,6 +20,7 @@ import (
 	modheader "github.com/celestiaorg/celestia-node/nodebuilder/header"
 	"github.com/celestiaorg/celestia-node/nodebuilder/node"
 	"github.com/celestiaorg/celestia-node/nodebuilder/p2p"
+	"github.com/celestiaorg/celestia-node/nodebuilder/share"
 	"github.com/celestiaorg/celestia-node/state"
 )
 
@@ -72,6 +72,7 @@ func WithMetrics(metricOpts []otlpmetrichttp.Option, nodeType node.Type) fx.Opti
 		// TODO(distractedm1nd): shrex can be disabled, which would make DI fail here
 		fx.Invoke(share.WithShrexClientMetrics),
 		fx.Invoke(modheader.WithMetrics),
+		fx.Invoke(share.WithPeerManagerMetrics),
 		fx.Invoke(share.WithShrexGetterMetrics),
 	)
 
