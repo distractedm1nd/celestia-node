@@ -126,7 +126,6 @@ func (d *Discovery) handlePeerFound(ctx context.Context, topic string, peer peer
 	}
 
 	d.onUpdatedPeers(peer.ID, true)
-	d.observePeerCount(ctx)
 	d.observePeerEvent(ctx, StatusNewPeer)
 	log.Debugw("added peer to set", "id", peer.ID)
 	// add tag to protect peer of being killed by ConnManager
@@ -182,7 +181,6 @@ func (d *Discovery) ensurePeers(ctx context.Context) {
 							"peer", connStatus.Peer, "status", connStatus.Connectedness.String())
 						d.connector.RestartBackoff(connStatus.Peer)
 						d.set.Remove(connStatus.Peer)
-						d.observePeerCount(ctx)
 						d.observePeerEvent(ctx, StatusLostPeer)
 						d.onUpdatedPeers(connStatus.Peer, false)
 						d.host.ConnManager().UntagPeer(connStatus.Peer, topic)

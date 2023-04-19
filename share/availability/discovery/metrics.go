@@ -27,11 +27,22 @@ func (d *Discovery) WithMetrics() error {
 		"disc_peer_events",
 		instrument.WithDescription("Number of peer events in discovery"),
 	)
+	if err != nil {
+		return err
+	}
+
 	d.metrics = &metrics{
 		peerCount:  peerCount,
 		peerEvents: peerEvents,
 	}
-	return nil
+
+	err = meter.RegisterCallback(
+		[]instrument.Asynchronous{peerCount},
+		func(ctx context.Context) {
+			d.observePeerCount(ctx)
+		},
+	)
+	return err
 }
 
 func (d *Discovery) observePeerEvent(ctx context.Context, s status) {
