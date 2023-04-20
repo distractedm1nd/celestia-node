@@ -39,7 +39,6 @@ func (m *metrics) observeRequestForPeer(ctx context.Context, status status, peer
 
 	m.totalRequestCounter.Add(ctx, 1,
 		attribute.String("status", string(status)),
-		attribute.String("peer", peer.String()),
 	)
 }
 

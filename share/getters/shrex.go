@@ -95,8 +95,10 @@ func (sg *ShrexGetter) GetEDS(ctx context.Context, root *share.Root) (*rsmt2d.Ex
 		err     error
 	)
 	for {
-		if attempt > 50 {
-			return nil, fmt.Errorf("getter/shrex: too many attempts: %w", err)
+		select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
 		}
 		attempt++
 		start := time.Now()
