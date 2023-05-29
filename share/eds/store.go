@@ -16,8 +16,10 @@ import (
 	"github.com/filecoin-project/dagstore/mount"
 	"github.com/filecoin-project/dagstore/shard"
 	"github.com/ipfs/go-datastore"
+	sqliteds "github.com/ipfs/go-ds-sql/sqlite"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	carv1 "github.com/ipld/go-car"
+	_ "github.com/mattn/go-sqlite3"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
@@ -47,6 +49,7 @@ type Store struct {
 	cancel context.CancelFunc
 
 	dgstr  *dagstore.DAGStore
+	ds     datastore.Datastore
 	mounts *mount.Registry
 
 	cache *blockstoreCache
@@ -62,10 +65,19 @@ type Store struct {
 }
 
 // NewStore creates a new EDS Store under the given basepath and datastore.
-func NewStore(basepath string, ds datastore.Batching) (*Store, error) {
+func NewStore(basepath string, dsOld datastore.Batching) (*Store, error) {
 	err := setupPath(basepath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup eds.Store directories: %w", err)
+	}
+
+	opts := &sqliteds.Options{
+		DSN: "db.sqlite",
+	}
+
+	ds, err := opts.Create()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create sqlite datastore: %w", err)
 	}
 
 	r := mount.NewRegistry()
@@ -100,6 +112,7 @@ func NewStore(basepath string, ds datastore.Batching) (*Store, error) {
 
 	store := &Store{
 		basepath:   basepath,
+		ds:         ds,
 		dgstr:      dagStore,
 		topIdx:     invertedRepo,
 		carIdx:     fsRepo,
@@ -126,7 +139,11 @@ func (s *Store) Start(ctx context.Context) error {
 // Stop stops the underlying DAGStore.
 func (s *Store) Stop(context.Context) error {
 	defer s.cancel()
-	return s.dgstr.Close()
+	err := s.dgstr.Close()
+	if err != nil {
+		return err
+	}
+	return s.ds.Close()
 }
 
 // gc periodically removes all inactive or errored shards.
