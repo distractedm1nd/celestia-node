@@ -2,9 +2,11 @@ package share
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/ipfs/go-datastore"
+	leveldb "github.com/ipfs/go-ds-leveldb"
 	"github.com/libp2p/go-libp2p/core/host"
+	ldbopts "github.com/syndtr/goleveldb/leveldb/opt"
 	"go.uber.org/fx"
 
 	"github.com/celestiaorg/celestia-node/libs/fxutil"
@@ -81,8 +83,22 @@ func ConstructModule(tp node.Type, cfg *Config, options ...fx.Option) fx.Option 
 			}),
 		)),
 		fx.Provide(fx.Annotate(
-			func(path node.StorePath, ds datastore.Batching) (*eds.Store, error) {
-				return eds.NewStore(string(path), ds)
+			func(path node.StorePath) (*leveldb.Datastore, error) {
+				fmt.Println(path)
+				return leveldb.NewDatastore(string(path), &leveldb.Options{
+					Compression: ldbopts.NoCompression,
+					NoSync:      false,
+					Strict:      ldbopts.StrictAll,
+					ReadOnly:    false,
+				})
+			},
+			fx.OnStop(func(ctx context.Context, ds *leveldb.Datastore) error {
+				return ds.Close()
+			}),
+		)),
+		fx.Provide(fx.Annotate(
+			func(path node.StorePath, db *leveldb.Datastore) (*eds.Store, error) {
+				return eds.NewStore(string(path), db)
 			},
 			fx.OnStart(func(ctx context.Context, store *eds.Store) error {
 				err := store.Start(ctx)

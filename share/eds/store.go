@@ -112,6 +112,8 @@ func NewStore(basepath string, ds datastore.Batching) (*Store, error) {
 }
 
 func (s *Store) Start(ctx context.Context) error {
+	ctx, span := tracer.Start(ctx, "store/start")
+	defer span.End()
 	err := s.dgstr.Start(ctx)
 	if err != nil {
 		return err
