@@ -3,7 +3,8 @@ package share
 import (
 	"context"
 
-	"github.com/ipfs/go-datastore"
+	sqlds "github.com/ipfs/go-ds-sql"
+	sqliteds "github.com/ipfs/go-ds-sql/sqlite"
 	"github.com/libp2p/go-libp2p/core/host"
 	"go.uber.org/fx"
 
@@ -80,8 +81,21 @@ func ConstructModule(tp node.Type, cfg *Config, options ...fx.Option) fx.Option 
 				return server.Stop(ctx)
 			}),
 		)),
+		// The SQL datastore is used as the default storage backend for the EDS store.
+		// TODO: Provide reasoning
 		fx.Provide(fx.Annotate(
-			func(path node.StorePath, ds datastore.Batching) (*eds.Store, error) {
+			func(path node.StorePath) (*sqlds.Datastore, error) {
+				opts := &sqliteds.Options{
+					DSN: string(path) + "/edsstore.sqlite3",
+				}
+				return opts.Create()
+			},
+			fx.OnStop(func(ctx context.Context, store *sqlds.Datastore) error {
+				return store.Close()
+			}),
+		)),
+		fx.Provide(fx.Annotate(
+			func(path node.StorePath, ds *sqlds.Datastore) (*eds.Store, error) {
 				return eds.NewStore(string(path), ds)
 			},
 			fx.OnStart(func(ctx context.Context, store *eds.Store) error {
