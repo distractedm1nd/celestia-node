@@ -18,6 +18,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	carv1 "github.com/ipld/go-car"
+	_ "github.com/mattn/go-sqlite3"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
@@ -33,7 +34,6 @@ const (
 	blocksPath     = "/blocks/"
 	indexPath      = "/index/"
 	transientsPath = "/transients/"
-	dsn            = "/edsstore.sqlite3"
 
 	defaultGCInterval = time.Hour
 )
@@ -113,7 +113,9 @@ func NewStore(basepath string, ds datastore.Batching) (*Store, error) {
 }
 
 func (s *Store) Start(ctx context.Context) error {
+	_, span := tracer.Start(ctx, "store/start")
 	err := s.dgstr.Start(ctx)
+	span.End()
 	if err != nil {
 		return err
 	}

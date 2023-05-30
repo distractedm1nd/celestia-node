@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"github.com/filecoin-project/dagstore"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -60,10 +59,12 @@ func (tg *TeeGetter) GetEDS(ctx context.Context, root *share.Root) (eds *rsmt2d.
 		return nil, err
 	}
 
-	err = tg.store.Put(ctx, root.Hash(), eds)
-	if err != nil && !errors.Is(err, dagstore.ErrShardExists) {
-		return nil, fmt.Errorf("getter/tee: failed to store eds: %w", err)
-	}
+	go func() {
+		err = tg.store.Put(ctx, root.Hash(), eds)
+		if err != nil && !errors.Is(err, dagstore.ErrShardExists) {
+			log.Error(fmt.Errorf("getter/tee: failed to store eds: %w", err))
+		}
+	}()
 
 	return eds, nil
 }
